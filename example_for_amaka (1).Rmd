@@ -1,0 +1,168 @@
+---
+title: "Georgia COVID-19 Vaccination Rates"
+author: Amaka Mgboh
+date: 03/25/2025
+output:
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    theme: cerulean
+  html_document:
+    df_print: paged
+---
+
+```{r setup, echo=FALSE, eval = TRUE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message= FALSE)
+##options(repos = c(CRAN = "https://cran.rstudio.com"))
+##install.packages("readxl")
+##Sys.setenv(RSTUDIO_PANDOC = "/opt/homebrew/bin/pandoc")
+```
+
+## Introduction
+This report explores geographic disparities in COVID-19 vaccination rates across Georgia counties. It examines the influence of socioeconomic factors and healthcare access on vaccine distribution using interactive visualizations.
+
+```{r libraries, message=FALSE, warning=FALSE, echo=FALSE, eval = TRUE}
+library(ggplot2)
+library(plotly)
+library(leaflet)
+library(dplyr)
+library(sf)
+```
+
+## Load Data
+```{r load-data, eval = TRUE}
+file_path <- "Home/Downloads/Georgia_DPH_PUBLIC_Vaccination_Public_Data_in_Excel.xlsx"
+# install.packages("readxl")  
+library(readxl)
+df <- read_excel("~/Downloads/Georgia_DPH_PUBLIC_Vaccination_Public_Data_in_Excel.xlsx", 
+                 sheet = "COUNTY_SUMMARY")
+```
+
+```{r}
+# Load libraries
+library(sf)
+library(tigris)
+library(dplyr)
+library(plotly)
+library(DT)
+library(readr)
+library(leaflet)
+library(RColorBrewer)
+library(flexdashboard)
+
+# Step 1: Get Georgia county shapefiles
+options(tigris_use_cache = TRUE)
+ga_sf <- counties(state = "GA", cb = TRUE, class = "sf")
+
+
+colnames(ga_sf)  
+colnames(df)     
+
+# Step 1: Clean and prepare ga_data
+ga_data <- df %>%
+  select(COUNTY_ID, PCTCUMPVAX)  
+
+# Step 2: Perform the left join to merge ga_data into ga_sf
+ga_sf <- merge(ga_sf, ga_data, by.x="GEOID", by.y="COUNTY_ID")
+ga_sf$PCTCUMPVAX = as.numeric(ga_sf$PCTCUMPVAX)
+ga_sf$PCTCUMPVAX = ga_sf$PCTCUMPVAX / 100 
+
+# Step 4: Define color palette
+pal <- colorNumeric(palette = "YlGnBu", domain = ga_sf$PCTCUMPVAX)
+
+# Step 5: Plot with leaflet
+leaflet(ga_sf) %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  addPolygons(
+    fillColor = ~pal(PCTCUMPVAX),
+    weight = 1,
+    color = "white",
+    fillOpacity = 0.7,
+    label = ~paste0(NAME, ": ", round(PCTCUMPVAX, 2)),
+    highlightOptions = highlightOptions(weight = 2, color = "#666", fillOpacity = 0.9, bringToFront = TRUE)
+  ) %>%
+  addLegend(pal = pal, values = ~PCTCUMPVAX, title = "Vaccination Rate %", position = "bottomright")
+
+
+```
+
+
+### Key Takeaways:
+- Identifies counties with the lowest vaccination rates.
+- Shows correlation between vaccination rates and healthcare facility distribution.
+- Highlights potential target areas for intervention.
+
+## Table: Vaccination Rate by District Name
+```{r scatterplot, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(plotly)
+library(scales)
+library(DT) 
+
+df$PCTCUMPCVAX <- as.numeric(df$PCTCUMPCVAX)
+
+# Create scatter plot with facet_wrap
+plot <- ggplot(df, aes(x = COUNTY_NAME, y = PCTCUMPCVAX / 100, text = COUNTY_NAME)) + 
+  geom_point(color = "blue", alpha = 0.7) +
+  labs(title = "Vaccination Rate by District Name",
+       x = "District Name",
+       y = "Vaccination Rate (%)") +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 8), 
+        axis.ticks.y = element_blank()) + 
+  scale_y_continuous(labels = percent_format(scale = 1),  
+                     breaks = seq(0, 1, by = 0.1)) + 
+  facet_wrap(~DISTRICT_NAME) 
+
+# Make the plot interactive
+plotly_plot <- ggplotly(plot, tooltip = c("text", "x", "y"))
+
+# Create a data table
+datatable(df, options = list(pageLength = 10, autoWidth = TRUE))
+
+```
+
+```{r}
+# Load libraries
+library(sf)
+library(tigris)
+library(dplyr)
+library(leaflet)
+library(RColorBrewer)
+
+# Step 1: Get Georgia county shapefiles
+options(tigris_use_cache = TRUE)
+ga_sf <- counties(state = "GA", cb = TRUE, class = "sf")
+
+# Step 2: Clean and prepare ga_data
+ga_data <- df %>%
+  select( COUNTY_ID, PCTCUMPVAX)  
+
+# Step 3: Perform the left join to merge ga_data into ga_sf
+ga_sf <- merge(ga_sf, ga_data, by.x = "GEOID", by.y = "COUNTY_ID")
+ga_sf$PCTCUMPVAX <- as.numeric(ga_sf$PCTCUMPVAX)
+ga_sf$PCTCUMPVAX <- ga_sf$PCTCUMPVAX / 100  
+
+# Step 4: Define the color palette
+pal <- colorNumeric(palette = "YlGnBu", domain = ga_sf$PCTCUMPVAX)
+
+# Step 5: Create a bubble map with Leaflet
+leaflet(ga_sf) %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  addCircles(
+    ~st_coordinates(geometry)[, 1], ~st_coordinates(geometry)[, 2],  
+    radius = ~PCTCUMPVAX * 500,  
+    color = ~pal(PCTCUMPVAX),  
+    weight = 1,
+    opacity = 0.7,
+    fillOpacity = 0.7,
+    label = ~paste0(NAME, ": ", round(PCTCUMPVAX * 100, 2), "%"),  
+    highlightOptions = highlightOptions(weight = 2, color = "#666", fillOpacity = 0.9, bringToFront = TRUE)
+  ) %>%
+  addLegend(pal = pal, values = ~PCTCUMPVAX, title = "Vaccination Rate %", position = "bottomright")
+```
+
+### Key Takeaways:
+- Demonstrates a relationship between districts and vaccination rates.
+- Highlights disparities in vaccine uptake.
+- Guides policymakers to identify at-risk populations for outreach efforts.
