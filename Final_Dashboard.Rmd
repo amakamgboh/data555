@@ -3,13 +3,13 @@ title: "Georgia COVID-19 Vaccination Rates"
 author: Amaka Mgboh
 date: 03/25/2025
 output:
+  html_document:
+    df_print: paged
+    self_contained: true
   flexdashboard::flex_dashboard:
     orientation: rows
     vertical_layout: fill
     theme: cerulean
-  html_document:
-    df_print: paged
-    self_contained: true
 ---
 
 ```{r setup, echo=FALSE, eval = TRUE}
